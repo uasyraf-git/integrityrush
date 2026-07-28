@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <title>Integrity Rush 🏎️ — FGV Holdings Berhad</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    html,body{height:100%;background:#07071A;overflow:hidden;}
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
+    button,input{font-family:inherit;}
+    #root{height:100%;}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useEffect, useRef, useState } = React;
+
+// ─── Speed milestones ─────────────────────────────────────────
+const SPEED_MILESTONES = [
+  { dist: 350,  text: "LAJU UP! ⚡",        col: "#FFD700" },
+  { dist: 800,  text: "MAKIN LAJU! 🔥",     col: "#FF9900" },
+  { dist: 1500, text: "GILA LAJU! 💨",      col: "#FF5500" },
+  { dist: 2500, text: "BAHAYA! 🚀",         col: "#FF0055" },
+  { dist: 4000, text: "CORRUPTION RUSH! 😱",col: "#CC00FF" },
+];
+
+const OBS = [
+  { label: "RASUAH",         icon: "💰", color: "#FF4455" },
+  { label: "KONFLIK",        icon: "⚖️", color: "#FF9900" },
+  { label: "SALAH GUNA",     icon: "⚡", color: "#9944FF" },
+  { label: "TUNTUTAN PALSU", icon: "📋", color: "#FF44BB" },
+];
+
+const QS = [
+  { q: "Vendor ajak makan malam mewah semasa proses bidaan. Apa buat?",
+    opts: ["Pergi je, lapar!", "Tolak & lapor Integriti", "Pergi tapi simpan rahsia"],
+    ok: 1, cat: "Anti-Rasuah", cc: "#FF5757" },
+  { q: "Jumpa sampul berisi duit dalam laci meja. Tiada nota, tiada nama.",
+    opts: ["Simpan dulu...", "Lapor Unit Integriti segera", "Buang je biar selamat"],
+    ok: 1, cat: "Anti-Rasuah", cc: "#FF5757" },
+  { q: "Rakan bisik: 'Kena jaga orang yang sign kalau nak projek lulus cepat.'",
+    opts: ["Tanya berapa nak dijaga", "Pura-pura tak dengar", "Tegur & lapor Integriti"],
+    ok: 2, cat: "Anti-Rasuah", cc: "#FF5757" },
+  { q: "Adik korang bid kontrak FGV. Korang dalam panel penilaian tender tu.",
+    opts: ["Teruskan — boleh adil", "Dedah & keluar dari panel", "Tolong adik menang"],
+    ok: 1, cat: "Konflik Kepentingan", cc: "#FFB800" },
+  { q: "Kena interview jiran baik sendiri untuk jawatan kosong di FGV.",
+    opts: ["Interview je, kalau layak ambil", "Dedah & minta orang lain", "Reject terus"],
+    ok: 1, cat: "Konflik Kepentingan", cc: "#FFB800" },
+  { q: "Boss suruh guna kereta syarikat untuk hantar anak dia ke sekolah.",
+    opts: ["Ikut je — boss yang suruh", "Tegur & lapor jika berterusan", "Buat tapi jangan rekod"],
+    ok: 1, cat: "Salah Guna Kuasa", cc: "#A78BFA" },
+  { q: "Ada akses sistem HR. Rakan minta tengok gaji orang lain 'sekadar nak tahu'.",
+    opts: ["Tengok je, ada access pun", "Tolak — untuk kerja rasmi je", "Tengok tapi rahsia"],
+    ok: 1, cat: "Salah Guna Kuasa", cc: "#A78BFA" },
+  { q: "Naik ETS ke KL tapi tuntut kadar penerbangan dalam borang tuntutan.",
+    opts: ["OK je, jimat masa syarikat", "Penipuan — boleh kena tindakan", "OK kalau boss luluskan"],
+    ok: 1, cat: "Tuntutan Palsu", cc: "#34D399" },
+  { q: "Rakan minta sign sebagai saksi OT. Tapi korang tahu dia tak kerja hari tu.",
+    opts: ["Sign je, kawan baik", "Tolak & nasihat rakan", "Sign tapi tulis diari"],
+    ok: 1, cat: "Tuntutan Palsu", cc: "#34D399" },
+];
+
+const MEDALS = ["🥇","🥈","🥉"];
+const F = "'Segoe UI',system-ui,sans-serif";
+
+// ─── Storage ──────────────────────────────────────────────────
+const store = {
+  async get(key) {
+    try {
+      if (window.storage) { const r = await window.storage.get(key,true); return r?JSON.parse(r.value):null; }
+      const v = localStorage.getItem("ir_"+key); return v?JSON.parse(v):null;
+    } catch { return null; }
+  },
+  async set(key,val) {
+    try {
+      if (window.storage) { await window.storage.set(key,JSON.stringify(val),true); }
+      else { localStorage.setItem("ir_"+key,JSON.stringify(val)); }
+    } catch {}
+  },
+};
+
+// ─── Canvas helpers ───────────────────────────────────────────
+function rr(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);
+  ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);
+  ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);
+  ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+}
+
+function drawCar(ctx,cx,cy,w,h,col,isPlayer,label,icon){
+  const x=cx-w/2,y=cy-h/2;
+  ctx.save();
+  ctx.shadowColor=col;ctx.shadowBlur=20;ctx.fillStyle=col;
+  rr(ctx,x,y,w,h,7);ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle=isPlayer?"#003344":"#00000030";
+  ctx.fillRect(x+5,y+10,w-10,13);ctx.fillRect(x+5,y+30,w-10,12);
+  ctx.fillStyle=isPlayer?"#FFFFC0":"#FF6666";
+  ctx.fillRect(x+3,y+2,7,5);ctx.fillRect(x+w-10,y+2,7,5);
+  ctx.textAlign="center";
+  if(isPlayer){
+    ctx.fillStyle="#fff";ctx.font="bold 10px Arial";ctx.fillText("FGV",cx,cy+4);
+    ctx.font="14px serif";ctx.fillText("🛡️",cx,cy+19);
+  } else {
+    ctx.font="22px serif";ctx.fillText(icon,cx,cy+10);
+    ctx.font="bold 10px Arial";
+    const tw=ctx.measureText(label).width;
+    const pW=tw+18,pH=22,pX=cx-pW/2,pY=y-pH-5;
+    ctx.save();ctx.shadowColor=col;ctx.shadowBlur=14;ctx.fillStyle=col;
+    rr(ctx,pX,pY,pW,pH,11);ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle="#fff";ctx.fillText(label,cx,pY+15);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ─── App ──────────────────────────────────────────────────────
+function App(){
+  // Dynamic canvas size — fill viewport
+  const cwRef = useRef(Math.min(window.innerWidth, 500));
+  const chRef = useRef(Math.max(Math.min(window.innerHeight - 44, 820), 480));
+
+  const canvasRef      = useRef(null);
+  const gRef           = useRef(null);
+  const rafRef         = useRef(null);
+  const scrRef         = useRef("menu");
+  const hsRef          = useRef(0);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+
+  const [screen,      setScreen]      = useState("menu");
+  const [qState,      setQState]      = useState(null);
+  const [hud,         setHud]         = useState({score:0,lives:3,spd:0});
+  const [nameInput,   setNameInput]   = useState("");
+  const [playerName,  setPlayerName]  = useState("");
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [boardLoading,setBoardLoading]= useState(false);
+
+  // Load board on mount; handle resize
+  useEffect(()=>{
+    store.get("leaderboard").then(b=>setLeaderboard(b||[]));
+    const onResize=()=>{
+      cwRef.current = Math.min(window.innerWidth,500);
+      chRef.current = Math.max(Math.min(window.innerHeight-44,820),480);
+    };
+    window.addEventListener("resize",onResize);
+    return()=>window.removeEventListener("resize",onResize);
+  },[]);
+
+  // Auto-save on gameover → leaderboard
+  useEffect(()=>{
+    if(screen!=="gameover") return;
+    const finalScore=Math.floor(hud.score);
+    (async()=>{
+      const existing=(await store.get("leaderboard"))||[];
+      const entry={name:playerName||"Anon",score:finalScore,date:new Date().toLocaleDateString("ms-MY")};
+      const merged=[...existing,entry].sort((a,b)=>b.score-a.score).slice(0,20);
+      await store.set("leaderboard",merged);
+      setLeaderboard(merged);
+      setTimeout(()=>{scrRef.current="leaderboard";setScreen("leaderboard");},1600);
+    })();
+  },[screen]);
+
+  // Keyboard
+  useEffect(()=>{
+    const h=(e)=>{
+      if(e.key==="ArrowLeft"||e.key==="a") moveLane(-1);
+      if(e.key==="ArrowRight"||e.key==="d") moveLane(1);
+      if(e.key==="Escape"||e.key==="p") {
+        if(scrRef.current==="playing") handlePause();
+        else if(scrRef.current==="paused") handleResume();
+      }
+    };
+    window.addEventListener("keydown",h);
+    return()=>window.removeEventListener("keydown",h);
+  },[]);
+
+  // ── Game init ──────────────────────────────────────────────
+  function initGame(){
+    const cw=cwRef.current, ch=chRef.current;
+    const lanes=[cw*0.249, cw*0.5, cw*0.751];
+    gRef.current={
+      cw, ch,
+      lanes,
+      py: ch*0.814,
+      roadL: cw*0.124, roadR: cw*0.876,
+      laneDivL: cw*0.376, laneDivR: cw*0.624,
+      px: lanes[1], lane:1,
+      spd: 3, dist:0, score:0, coinCt:0,
+      lives:3, shieldT:0, shakeT:0, rdOff:0,
+      obstacles:[], stars:[], ptcls:[],
+      nextObs:80, nextStar:40, nextQ:700,
+      qArr:[...QS].sort(()=>Math.random()-0.5), qIdx:0,
+      frame:0, lastMilestoneDist:-1,
+      speedNotif:null,
+    };
+  }
+
+  function moveLane(dir){
+    const g=gRef.current;
+    if(!g||scrRef.current!=="playing") return;
+    g.lane=Math.max(0,Math.min(2,g.lane+dir));
+  }
+
+  function handlePause(){
+    if(scrRef.current!=="playing") return;
+    cancelAnimationFrame(rafRef.current);
+    scrRef.current="paused";
+    setScreen("paused");
+  }
+
+  function handleResume(){
+    scrRef.current="playing";
+    setScreen("playing");
+  }
+
+  function handleEndGame(){
+    const g=gRef.current;
+    const score=g?Math.floor(g.score):hud.score;
+    hsRef.current=Math.max(hsRef.current,score);
+    setHud(h=>({...h,score}));
+    scrRef.current="gameover";
+    setScreen("gameover");
+  }
+
+  function handleMainMenu(){
+    cancelAnimationFrame(rafRef.current);
+    scrRef.current="menu";
+    setScreen("menu");
+  }
+
+  // ── Game loop ─────────────────────────────────────────────
+  useEffect(()=>{
+    if(screen!=="playing") return;
+    const canvas=canvasRef.current; if(!canvas) return;
+    const ctx=canvas.getContext("2d");
+
+    function loop(){
+      const g=gRef.current; if(!g) return;
+      const {cw,ch,lanes,py,roadL,roadR,laneDivL,laneDivR}=g;
+      const PW=42,PH=68,OW=42,OH=66;
+
+      g.frame++;
+      g.spd=Math.min(20, g.spd+0.0012);
+      g.dist+=g.spd*0.1;
+      g.rdOff=(g.rdOff+g.spd)%80;
+      g.score+=g.spd*0.04;
+      if(g.shieldT>0) g.shieldT--;
+      if(g.shakeT>0)  g.shakeT--;
+      g.px+=(lanes[g.lane]-g.px)*0.17;
+
+      // Speed milestones
+      SPEED_MILESTONES.forEach(m=>{
+        if(g.dist>=m.dist && g.lastMilestoneDist<m.dist){
+          g.lastMilestoneDist=m.dist;
+          g.speedNotif={text:m.text,col:m.col,alpha:1,scale:1.5};
+        }
+      });
+      if(g.speedNotif){
+        g.speedNotif.alpha-=0.006;
+        g.speedNotif.scale=Math.max(1,g.speedNotif.scale-0.02);
+        if(g.speedNotif.alpha<=0) g.speedNotif=null;
+      }
+
+      // Spawn — faster at higher speed
+      const obsGap=Math.max(30, 55-(g.spd*1.5));
+      if(g.dist>=g.nextObs){
+        const lane=Math.floor(Math.random()*3);
+        const t=OBS[Math.floor(Math.random()*OBS.length)];
+        g.obstacles.push({...t,x:lanes[lane],y:-OH-5});
+        g.nextObs=g.dist+obsGap+Math.random()*60;
+      }
+      if(g.dist>=g.nextStar){
+        g.stars.push({x:lanes[Math.floor(Math.random()*3)],y:-15,done:false});
+        g.nextStar=g.dist+30+Math.random()*40;
+      }
+
+      g.obstacles.forEach(o=>o.y+=g.spd);
+      g.obstacles=g.obstacles.filter(o=>o.y<ch+OH);
+      g.stars.forEach(s=>s.y+=g.spd);
+      g.stars=g.stars.filter(s=>s.y<ch+20);
+      g.ptcls.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.38;p.a-=0.04;p.r-=0.12;});
+      g.ptcls=g.ptcls.filter(p=>p.a>0&&p.r>0);
+
+      // Collisions
+      for(const o of g.obstacles){
+        if(Math.abs(o.y-py)<PH*0.72&&Math.abs(o.x-g.px)<PW*0.65){
+          if(g.shieldT<=0){
+            g.lives--; g.shieldT=75; g.shakeT=20;
+            for(let i=0;i<18;i++) g.ptcls.push({x:g.px,y:py,vx:(Math.random()-.5)*9,vy:(Math.random()-1)*8,col:o.color,a:1,r:9});
+          }
+          o.y=ch+200;
+          if(g.lives<=0){
+            hsRef.current=Math.max(hsRef.current,Math.floor(g.score));
+            setHud({score:Math.floor(g.score),lives:0,spd:Math.floor(g.spd)});
+            scrRef.current="gameover"; setScreen("gameover");
+            cancelAnimationFrame(rafRef.current); return;
+          }
+          break;
+        }
+      }
+      for(const s of g.stars){
+        if(!s.done&&Math.abs(s.y-py)<28&&Math.abs(s.x-g.px)<26){
+          s.done=true; g.coinCt++; g.score+=15;
+          for(let i=0;i<8;i++) g.ptcls.push({x:s.x,y:s.y,vx:(Math.random()-.5)*4,vy:-Math.random()*5,col:"#FFD700",a:1,r:5});
+        }
+      }
+
+      // Question trigger
+      if(g.dist>=g.nextQ){
+        g.nextQ=g.dist+700;
+        const q=g.qArr[g.qIdx%g.qArr.length]; g.qIdx++;
+        scrRef.current="question";
+        setQState({...q,selected:null,feedback:null});
+        setHud({score:Math.floor(g.score),lives:g.lives,spd:Math.floor(g.spd)});
+        setScreen("question");
+        cancelAnimationFrame(rafRef.current); return;
+      }
+
+      if(g.frame%8===0) setHud({score:Math.floor(g.score),lives:g.lives,spd:Math.floor(g.spd)});
+
+      // ── DRAW ──────────────────────────────────────────────
+      ctx.fillStyle="#08081C"; ctx.fillRect(0,0,cw,ch);
+      ctx.fillStyle="#131330"; ctx.fillRect(roadL,0,roadR-roadL,ch);
+
+      // Neon road edges
+      [roadL,roadR].forEach(lx=>{
+        ctx.save();ctx.shadowColor="#00FFCC";ctx.shadowBlur=12;
+        ctx.strokeStyle="#00FFCC50";ctx.lineWidth=3;
+        ctx.beginPath();ctx.moveTo(lx,0);ctx.lineTo(lx,ch);ctx.stroke();
+        ctx.restore();
+      });
+
+      // Lane dashes
+      ctx.strokeStyle="#FFFFFF18";ctx.lineWidth=2;
+      ctx.setLineDash([36,44]);ctx.lineDashOffset=-g.rdOff;
+      [laneDivL,laneDivR].forEach(lx=>{ctx.beginPath();ctx.moveTo(lx,0);ctx.lineTo(lx,ch);ctx.stroke();});
+      ctx.setLineDash([]);
+
+      // Speed streaks on road sides
+      const sCol=`rgba(255,255,255,${Math.min(0.12,(g.spd-3)/120)})`;
+      ctx.strokeStyle=sCol;ctx.lineWidth=1;
+      [roadL-8,roadL-18,roadR+8,roadR+18].forEach(lx=>{
+        const off=(g.rdOff*2)%50;
+        for(let y=-50+off;y<ch+50;y+=50){ctx.beginPath();ctx.moveTo(lx,y);ctx.lineTo(lx,y+24);ctx.stroke();}
+      });
+
+      // Stars
+      g.stars.forEach(s=>{
+        if(s.done) return;
+        ctx.save();ctx.shadowColor="#FFD700";ctx.shadowBlur=18;
+        ctx.font="24px serif";ctx.textAlign="center";ctx.fillText("⭐",s.x,s.y+10);
+        ctx.font="bold 9px Arial";
+        const tw=ctx.measureText("KUTIP!").width+14;
+        ctx.fillStyle="#FFD700CC"; rr(ctx,s.x-tw/2,s.y+13,tw,15,8); ctx.fill();
+        ctx.fillStyle="#000"; ctx.fillText("KUTIP!",s.x,s.y+23);
+        ctx.restore();
+      });
+
+      // Obstacles
+      g.obstacles.forEach(o=>drawCar(ctx,o.x,o.y+OH/2,OW,OH,o.color,false,o.label,o.icon));
+
+      // Player
+      ctx.save();
+      if(g.shakeT>0){const s=(g.shakeT/20)*8;ctx.translate((Math.random()-.5)*s,(Math.random()-.5)*s);}
+      const sh=g.shieldT>0;
+      if(sh&&g.frame%6<3){
+        ctx.save();ctx.shadowColor="#00FFFF";ctx.shadowBlur=32;
+        ctx.strokeStyle="#00FFFF";ctx.lineWidth=2.5;
+        ctx.beginPath();ctx.ellipse(g.px,py,PW*0.9,PH*0.65,0,0,Math.PI*2);ctx.stroke();
+        ctx.restore();
+      }
+      drawCar(ctx,g.px,py,PW,PH,sh?"#00FFFF":"#00C8AA",true,"","");
+      ctx.restore();
+
+      // Particles
+      g.ptcls.forEach(p=>{
+        ctx.save();ctx.globalAlpha=p.a;ctx.fillStyle=p.col;
+        ctx.shadowColor=p.col;ctx.shadowBlur=8;
+        ctx.beginPath();ctx.arc(p.x,p.y,Math.max(0,p.r),0,Math.PI*2);ctx.fill();
+        ctx.restore();
+      });
+
+      // Speed notif (milestone)
+      if(g.speedNotif){
+        ctx.save();ctx.globalAlpha=g.speedNotif.alpha;
+        ctx.shadowColor=g.speedNotif.col;ctx.shadowBlur=20;
+        ctx.fillStyle=g.speedNotif.col;
+        ctx.font=`bold ${Math.floor(22*g.speedNotif.scale)}px Arial`;
+        ctx.textAlign="center";
+        ctx.fillText(g.speedNotif.text,cw/2,ch*0.42);
+        ctx.restore();
+      }
+
+      // HUD
+      ctx.fillStyle="#fff";ctx.font="bold 15px Arial";ctx.textAlign="left";
+      ctx.shadowColor="#00FFCC";ctx.shadowBlur=8;
+      ctx.fillText(`⭐ ${Math.floor(g.score)}`,8,26);ctx.shadowBlur=0;
+      ctx.textAlign="right";
+      ctx.fillText("❤️".repeat(g.lives)+"🖤".repeat(3-g.lives),cw-8,26);
+      // Speed meter
+      const spdPct=g.spd/20;
+      const meterW=80,meterX=cw/2-40,meterY=8;
+      ctx.fillStyle="rgba(0,0,0,0.4)";rr(ctx,meterX,meterY,meterW,12,6);ctx.fill();
+      const mCol=spdPct<0.4?"#00D4AA":spdPct<0.7?"#FFB800":"#FF4455";
+      ctx.fillStyle=mCol;ctx.shadowColor=mCol;ctx.shadowBlur=6;
+      rr(ctx,meterX,meterY,meterW*spdPct,12,6);ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle="#fff";ctx.font="bold 9px Arial";ctx.textAlign="center";
+      ctx.fillText(`LAJU ${Math.floor(spdPct*100)}%`,cw/2,meterY+9);
+      // Player name
+      ctx.fillStyle="#FFFFFF40";ctx.font="10px Arial";ctx.textAlign="left";
+      ctx.fillText(playerName,8,42);
+      // Legend
+      ctx.save();ctx.font="bold 10px Arial";ctx.textAlign="center";
+      ctx.fillStyle="#FFD700CC";ctx.fillText("⭐ KUTIP",cw/2-52,ch-8);
+      ctx.fillStyle="#FFFFFF25";ctx.fillText("|",cw/2,ch-8);
+      ctx.fillStyle="#FF4455CC";ctx.fillText("🚗 ELAK",cw/2+50,ch-8);
+      ctx.restore();
+      if(sh){
+        ctx.save();ctx.shadowColor="#00FFFF";ctx.shadowBlur=12;
+        ctx.fillStyle="#00FFFFCC";ctx.font="bold 11px Arial";ctx.textAlign="center";
+        ctx.fillText("🛡️ PERISAI AKTIF",cw/2,46);ctx.restore();
+      }
+
+      rafRef.current=requestAnimationFrame(loop);
+    }
+
+    rafRef.current=requestAnimationFrame(loop);
+    return()=>cancelAnimationFrame(rafRef.current);
+  },[screen]);
+
+  // ── Handlers ──────────────────────────────────────────────
+  function handleAnswer(i){
+    const g=gRef.current;
+    if(!g||qState.selected!==null) return;
+    const correct=i===qState.ok;
+    setQState(q=>({...q,selected:i,feedback:correct}));
+    setTimeout(()=>{
+      if(correct){g.score+=200;g.shieldT=200;}
+      else{g.lives=Math.max(0,g.lives-1);}
+      if(g.lives<=0){
+        hsRef.current=Math.max(hsRef.current,Math.floor(g.score));
+        setHud({score:Math.floor(g.score),lives:0,spd:0});
+        scrRef.current="gameover";setScreen("gameover");
+        setQState(null); return;
+      }
+      setQState(null);scrRef.current="playing";setScreen("playing");
+    },2400);
+  }
+
+  function handleCanvasInput(clientX){
+    if(scrRef.current!=="playing") return;
+    const canvas=canvasRef.current; if(!canvas) return;
+    const rect=canvas.getBoundingClientRect();
+    const gx=(clientX-rect.left)*(cwRef.current/rect.width);
+    if(gx<cwRef.current/2) moveLane(-1); else moveLane(1);
+  }
+
+  function startGame(){
+    const name=nameInput.trim(); if(!name) return;
+    setPlayerName(name); initGame();
+    scrRef.current="playing";
+    setHud({score:0,lives:3,spd:0});
+    setScreen("playing");
+  }
+
+  function playAgain(){
+    initGame(); scrRef.current="playing";
+    setHud({score:0,lives:3,spd:0}); setScreen("playing");
+  }
+
+  async function refreshBoard(){
+    setBoardLoading(true);
+    const b=await store.get("leaderboard"); setLeaderboard(b||[]);
+    setBoardLoading(false);
+  }
+
+  // ── Button styles ─────────────────────────────────────────
+  const btnPrimary={background:"linear-gradient(135deg,#00D4AA,#0088FF)",border:"none",borderRadius:50,color:"#fff",fontWeight:900,fontSize:16,padding:"14px 0",cursor:"pointer",fontFamily:F};
+  const btnGhost={background:"transparent",border:"1.5px solid #1A2545",borderRadius:50,color:"#3A5A7A",fontSize:13,fontWeight:600,padding:"14px 0",cursor:"pointer",fontFamily:F};
+
+  // ── MENU ──────────────────────────────────────────────────
+  if(screen==="menu") return(
+    <div style={{background:"#07071A",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:F,color:"#fff",padding:"20px",overflowY:"auto"}}>
+      <div style={{fontSize:60,lineHeight:1}}>🏎️</div>
+      <div style={{fontSize:10,letterSpacing:6,color:"#00FFCC",marginTop:8,fontWeight:700}}>FGV HOLDINGS BERHAD</div>
+      <h1 style={{margin:"10px 0 4px",fontSize:30,fontWeight:900,background:"linear-gradient(90deg,#00FFCC,#0099FF,#AA44FF)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-1}}>
+        INTEGRITY RUSH
+      </h1>
+      <p style={{color:"#FF4455",fontWeight:700,fontSize:11,letterSpacing:2,margin:"0 0 20px"}}>ELAK CORRUPTION. PANDU DENGAN INTEGRITI.</p>
+
+      <div style={{width:"100%",maxWidth:320,marginBottom:16}}>
+        <div style={{color:"#4A6A8A",fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>Nama Korang</div>
+        <input value={nameInput} onChange={e=>setNameInput(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&startGame()}
+          placeholder="Masukkan nama..." maxLength={20}
+          style={{width:"100%",background:"#0C112A",border:"1.5px solid #1A2545",borderRadius:10,padding:"12px 16px",color:"#E0F0FF",fontSize:15,fontFamily:F,outline:"none",boxSizing:"border-box"}}/>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16,width:"100%",maxWidth:320}}>
+        {OBS.map(o=>(
+          <div key={o.label} style={{background:"rgba(255,255,255,0.03)",border:`1px solid ${o.color}30`,borderRadius:10,padding:"8px 12px",display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:16}}>{o.icon}</span>
+            <span style={{color:o.color,fontSize:11,fontWeight:700}}>{o.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:"#0C112A",border:"1px solid #1A2545",borderRadius:14,padding:"10px 18px",marginBottom:20,width:"100%",maxWidth:320,fontSize:12,color:"#3A5A7A",lineHeight:2}}>
+        <div>📱 <b style={{color:"#6A8ABB"}}>Swipe kiri/kanan</b> untuk tukar lorong</div>
+        <div>⭐ Kutip → <b style={{color:"#FFD700"}}>+15</b> &nbsp;|&nbsp; ✅ Jawab betul → <b style={{color:"#00D4AA"}}>+200 + 🛡️</b></div>
+        <div>💥 Langgar / jawab salah → <b style={{color:"#FF5757"}}>-1 ❤️</b> &nbsp;|&nbsp; ⏸ Escape = Pause</div>
+      </div>
+
+      <div style={{display:"flex",gap:10,width:"100%",maxWidth:320}}>
+        <button onClick={startGame} disabled={!nameInput.trim()}
+          style={{...btnPrimary,flex:2,opacity:nameInput.trim()?1:0.4}}>
+          PANDU! 🏎️
+        </button>
+        <button onClick={()=>{refreshBoard();scrRef.current="leaderboard";setScreen("leaderboard");}}
+          style={{...btnGhost,flex:1,color:"#FFD700",borderColor:"#FFD70030"}}>
+          🏆
+        </button>
+      </div>
+      {hsRef.current>0&&<p style={{color:"#FFD700",fontSize:13,marginTop:14,fontWeight:700}}>🏆 Rekod: {hsRef.current}</p>}
+    </div>
+  );
+
+  // ── GAME OVER (saving) ────────────────────────────────────
+  if(screen==="gameover") return(
+    <div style={{background:"#07071A",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:F,color:"#fff",padding:20}}>
+      <div style={{fontSize:68,marginBottom:10}}>💥</div>
+      <h2 style={{margin:0,fontSize:26,fontWeight:900,color:"#FF4455"}}>HABIS LAH!</h2>
+      <p style={{color:"#3A5A7A",fontSize:14,margin:"8px 0 24px"}}>Korang kena langgar corruption...</p>
+      <div style={{background:"#0C112A",border:"1px solid #1A2545",borderRadius:20,padding:"24px 48px",textAlign:"center"}}>
+        <div style={{color:"#4A6A8A",fontSize:11,fontWeight:700,letterSpacing:2,marginBottom:6,textTransform:"uppercase"}}>Markah Akhir</div>
+        <div style={{fontSize:52,fontWeight:900,color:"#FFD700",lineHeight:1}}>{hud.score}</div>
+        <div style={{color:"#3A5A7A",fontSize:12,marginTop:12}}>⏳ Menyimpan ke leaderboard...</div>
+      </div>
+    </div>
+  );
+
+  // ── LEADERBOARD ───────────────────────────────────────────
+  if(screen==="leaderboard"){
+    const myRank=leaderboard.findIndex(e=>e.name===playerName&&e.score===hud.score);
+    return(
+      <div style={{background:"#07071A",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:F,color:"#fff",padding:"24px 16px 40px",overflowY:"auto"}}>
+        <div style={{fontSize:44,marginBottom:4}}>🏆</div>
+        <h2 style={{margin:"0 0 4px",fontSize:22,fontWeight:900,background:"linear-gradient(90deg,#FFD700,#FF9900)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>LEADERBOARD</h2>
+        <p style={{color:"#2A4060",fontSize:11,margin:"0 0 16px"}}>FGV Integrity Rush — Top 20</p>
+        {playerName&&hud.score>0&&(
+          <div style={{background:"linear-gradient(135deg,rgba(0,212,170,0.1),rgba(0,136,255,0.1))",border:"1px solid #00D4AA40",borderRadius:12,padding:"12px 18px",marginBottom:14,width:"100%",maxWidth:400,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{color:"#00D4AA",fontSize:11,fontWeight:700}}>MARKAH KORANG</div>
+              <div style={{color:"#E0F0FF",fontSize:13,marginTop:2}}>{playerName} {myRank>=0?`· #${myRank+1}`:""}</div>
+            </div>
+            <div style={{fontSize:26,fontWeight:900,color:"#FFD700"}}>{hud.score}</div>
+          </div>
+        )}
+        <div style={{width:"100%",maxWidth:400,marginBottom:20}}>
+          {leaderboard.length===0?(
+            <div style={{textAlign:"center",color:"#2A4060",padding:"40px 0",fontSize:14}}>Belum ada rekod. Jadi yang pertama! 🏎️</div>
+          ):leaderboard.map((e,i)=>{
+            const isMe=e.name===playerName&&e.score===hud.score&&myRank===i;
+            return(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:isMe?"rgba(0,212,170,0.08)":i===0?"rgba(255,215,0,0.05)":"rgba(255,255,255,0.02)",border:isMe?"1px solid #00D4AA40":`1px solid ${i===0?"#FFD70020":"rgba(255,255,255,0.05)"}`,borderRadius:10,padding:"10px 14px",marginBottom:5}}>
+                <div style={{minWidth:28,textAlign:"center",fontSize:i<3?18:12,fontWeight:700,color:i<3?"":"#3A5A7A"}}>{i<3?MEDALS[i]:`#${i+1}`}</div>
+                <div style={{flex:1}}>
+                  <div style={{color:isMe?"#00D4AA":"#C0D4EE",fontSize:14,fontWeight:isMe?700:400}}>{e.name}{isMe?" ← Korang!":""}</div>
+                  <div style={{color:"#2A4060",fontSize:10,marginTop:1}}>{e.date}</div>
+                </div>
+                <div style={{fontSize:17,fontWeight:900,color:i===0?"#FFD700":i===1?"#C0C0C0":i===2?"#CD7F32":"#6A8ABB"}}>{e.score}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{display:"flex",gap:10,width:"100%",maxWidth:400}}>
+          {playerName&&<button onClick={playAgain} style={{...btnPrimary,flex:2}}>Cuba Lagi 🏎️</button>}
+          <button onClick={()=>{scrRef.current="menu";setScreen("menu");}} style={{...btnGhost,flex:1}}>Menu</button>
+          <button onClick={refreshBoard} style={{...btnGhost,minWidth:44}}>{boardLoading?"...":"↻"}</button>
+        </div>
+        <p style={{color:"#1A2840",fontSize:11,marginTop:14,textAlign:"center"}}>Leaderboard dikongsi antara semua pemain 🌐</p>
+      </div>
+    );
+  }
+
+  // ── PLAYING / PAUSED / QUESTION ───────────────────────────
+  const cw=cwRef.current, ch=chRef.current;
+  return(
+    <div style={{position:"fixed",inset:0,background:"#06061A",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",fontFamily:F,overflow:"hidden"}}>
+      <div style={{position:"relative",width:"100%",maxWidth:500,flex:1,display:"flex",flexDirection:"column"}}>
+
+        {/* Canvas */}
+        <canvas ref={canvasRef} width={cw} height={ch}
+          style={{display:"block",width:"100%",flex:1,touchAction:"none",cursor:"pointer"}}
+          onClick={e=>handleCanvasInput(e.clientX)}
+          onTouchStart={e=>{e.preventDefault();touchStartXRef.current=e.touches[0].clientX;touchStartYRef.current=e.touches[0].clientY;}}
+          onTouchEnd={e=>{
+            e.preventDefault();
+            const dx=e.changedTouches[0].clientX-touchStartXRef.current;
+            const dy=Math.abs(e.changedTouches[0].clientY-touchStartYRef.current);
+            if(Math.abs(dx)>30&&Math.abs(dx)>dy) moveLane(dx>0?1:-1);
+          }}
+        />
+
+        {/* Pause button — always visible during play/question */}
+        {(screen==="playing"||screen==="question")&&(
+          <button onClick={handlePause}
+            style={{position:"absolute",top:10,right:10,background:"rgba(0,0,0,0.55)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:10,color:"#fff",fontSize:20,padding:"6px 12px",cursor:"pointer",zIndex:20,backdropFilter:"blur(4px)"}}>
+            ⏸
+          </button>
+        )}
+
+        {/* Question overlay */}
+        {screen==="question"&&qState&&(
+          <div style={{position:"absolute",inset:0,background:"rgba(4,4,20,0.95)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"18px 16px",zIndex:15}}>
+            <div style={{background:"linear-gradient(135deg,#FF9900,#FF4455)",borderRadius:50,padding:"8px 24px",marginBottom:14,fontSize:12,fontWeight:900,color:"#fff",letterSpacing:1,textTransform:"uppercase"}}>
+              ⚠️ SOALAN INTEGRITI ⚠️
+            </div>
+            <div style={{background:"#0D1528",border:`2px solid ${qState.cc}35`,borderRadius:14,padding:"16px",marginBottom:14,width:"100%"}}>
+              <div style={{color:qState.cc,fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:8,textTransform:"uppercase"}}>{qState.cat}</div>
+              <p style={{color:"#C0D4EE",fontSize:14,lineHeight:1.8,margin:0}}>{qState.q}</p>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:9,width:"100%"}}>
+              {qState.opts.map((opt,i)=>{
+                let bg="#112030",bc="rgba(255,255,255,0.07)",tc="#B0C8E0";
+                if(qState.selected!==null){
+                  if(i===qState.ok){bg="rgba(52,211,153,0.14)";bc="#34D399";tc="#5FFABB";}
+                  else if(i===qState.selected){bg="rgba(255,87,87,0.14)";bc="#FF5757";tc="#FF9090";}
+                }
+                const badge=qState.selected!==null?(i===qState.ok?"✓":i===qState.selected?"✗":String.fromCharCode(65+i)):String.fromCharCode(65+i);
+                return(
+                  <button key={i} onClick={()=>handleAnswer(i)}
+                    style={{background:bg,border:`1.5px solid ${bc}`,borderRadius:10,padding:"12px 14px",textAlign:"left",cursor:qState.selected!==null?"default":"pointer",color:tc,fontSize:13,lineHeight:1.55,display:"flex",alignItems:"center",gap:10,outline:"none",transition:"all 0.2s",fontFamily:F}}>
+                    <span style={{minWidth:24,height:24,borderRadius:"50%",background:"rgba(255,255,255,0.05)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#4A6A8A",flexShrink:0}}>{badge}</span>
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+            {qState.selected!==null&&(
+              <div style={{marginTop:14,padding:"12px 16px",borderRadius:10,width:"100%",textAlign:"center",background:qState.feedback?"rgba(52,211,153,0.08)":"rgba(255,87,87,0.08)",border:`1px solid ${qState.feedback?"#34D39940":"#FF575740"}`}}>
+                <div style={{fontWeight:900,fontSize:16,color:qState.feedback?"#34D399":"#FF5757"}}>{qState.feedback?"🎉 BETUL! +200 + 🛡️":"❌ SALAH! -1 ❤️"}</div>
+                <div style={{color:"#3A5A7A",fontSize:12,marginTop:5}}>Sambung dalam sebentar...</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pause overlay */}
+        {screen==="paused"&&(
+          <div style={{position:"absolute",inset:0,background:"rgba(2,2,16,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:24,zIndex:25,backdropFilter:"blur(6px)"}}>
+            <div style={{fontSize:44}}>⏸</div>
+            <h2 style={{color:"#fff",fontSize:22,fontWeight:900,margin:0}}>GAME PAUSED</h2>
+            <div style={{color:"#FFD700",fontSize:22,fontWeight:900,marginBottom:8}}>⭐ {hud.score}</div>
+            <button onClick={handleResume}
+              style={{...btnPrimary,width:"100%",maxWidth:280}}>
+              ▶️ Sambung
+            </button>
+            <button onClick={handleEndGame}
+              style={{width:"100%",maxWidth:280,background:"rgba(255,215,0,0.08)",border:"1.5px solid #FFD70040",borderRadius:50,color:"#FFD700",fontWeight:700,fontSize:14,padding:"13px 0",cursor:"pointer",fontFamily:F}}>
+              💾 Tamat & Simpan Skor
+            </button>
+            <button onClick={handleMainMenu}
+              style={{...btnGhost,width:"100%",maxWidth:280}}>
+              🏠 Menu Utama
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Hint strip */}
+      <div style={{height:44,display:"flex",alignItems:"center",justifyContent:"center",color:"#2A4060",fontSize:11,gap:16,flexShrink:0}}>
+        <span>📱 Swipe kiri/kanan</span>
+        <span>·</span>
+        <span>⌨️ Arrow keys</span>
+        <span>·</span>
+        <span>⏸ Pause</span>
+      </div>
+    </div>
+  );
+}
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
